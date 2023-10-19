@@ -1,4 +1,5 @@
 #[allow(clippy::enum_variant_names)] // `My` prefix is intentional
+#[rustfmt::skip]
 mod entities;
 mod entities_extension;
 mod migrator;
@@ -6,12 +7,11 @@ mod repl;
 mod session;
 
 use anyhow::Result;
-
 use migrator::Migrator;
 use sea_orm::Database;
 use sea_orm_migration::MigratorTrait;
-
-use tracing_subscriber::{filter::LevelFilter, prelude::*};
+use tracing_subscriber::filter::LevelFilter;
+use tracing_subscriber::prelude::*;
 
 fn main() {
     let filter = tracing_subscriber::filter::Targets::new().with_default(LevelFilter::ERROR);

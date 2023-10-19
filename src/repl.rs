@@ -1,5 +1,6 @@
-use crate::session::Session;
 use anyhow::Result;
+
+use crate::session::Session;
 
 pub async fn repl(session: &mut Session) -> Result<()> {
     async fn handle_line(session: &mut Session, line: String) -> Result<()> {

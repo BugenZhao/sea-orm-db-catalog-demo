@@ -1,14 +1,15 @@
 use std::ops::ControlFlow;
 
-use crate::entities::{prelude::*, *};
-
 use anyhow::{bail, Context, Result};
+use sea_orm::ActiveValue::*;
 use sea_orm::{
-    ActiveModelTrait, ActiveValue::*, ColumnTrait, DatabaseConnection, EntityTrait,
-    IntoActiveModel, ModelTrait, QueryFilter, TransactionTrait,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, IntoActiveModel, ModelTrait,
+    QueryFilter, TransactionTrait,
 };
-
 use sqlparser::ast::{self, visit_relations};
+
+use crate::entities::prelude::*;
+use crate::entities::*;
 
 pub struct Session {
     meta: DatabaseConnection,
@@ -87,6 +88,13 @@ impl Session {
 
     async fn use_database(&mut self, db_name: ast::Ident) -> Result<()> {
         let db = MyDatabase::find()
+            // Really confusing here, especially if there's no `my_` prefix.
+            // Given a SQL term, you cannot tell if it's talking about our database or the meta
+            // store.
+            //
+            // `my_database`: entity (table) name
+            // `Column`: generated enum for all columns
+            // `Name`: column named `name`
             .filter(my_database::Column::Name.eq(&db_name.value))
             .one(&self.meta)
             .await?
@@ -178,7 +186,7 @@ impl Session {
         let txn = self.meta.begin().await?;
 
         let table = MyTable::find()
-            .inner_join(MyObject)
+            .inner_join(MyObject) // so that we can filter by columns from `my_object`
             .filter(
                 (my_object::Column::DatabaseId.eq(db_id))
                     .and(my_object::Column::Type.eq("table"))
@@ -188,6 +196,7 @@ impl Session {
             .await?
             .context("table not found")?;
 
+        // Why not eager loading like `alter_table`? Just for demo purpose.
         let columns = table.find_related(MyColumn).all(&txn).await?;
 
         for column in columns {
@@ -220,7 +229,7 @@ impl Session {
                     .and(my_object::Column::Type.eq("table"))
                     .and(my_object::Column::Name.eq(table_name)),
             )
-            .find_with_related(MyColumn)
+            .find_with_related(MyColumn) // eager loading, compared to `find_related` in `explain_table`
             .all(&txn)
             .await?
             .into_iter()
@@ -230,6 +239,7 @@ impl Session {
         for op in operations {
             use ast::AlterTableOperation::*;
 
+            // TODO: inefficient to manipulate columns one by one
             match op {
                 AddColumn { column_def, .. } => {
                     let column = my_column::ActiveModel::from_ast(column_def, table.object_id);
@@ -321,6 +331,7 @@ impl Session {
         for name in names {
             let name = &name.0[0].value;
 
+            // Constraints will help us restrict or cascade the deletion.
             let res = MyObject::delete_many()
                 .filter(
                     (my_object::Column::Name.eq(name.as_str()))
