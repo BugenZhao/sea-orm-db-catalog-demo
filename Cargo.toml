@@ -1,5 +1,5 @@
 [package]
-name = "sea-orm-playground"
+name = "sea-orm-db-catalog-demo"
 version = "0.1.0"
 edition = "2021"
 
