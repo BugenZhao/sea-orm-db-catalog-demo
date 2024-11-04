@@ -42,3 +42,30 @@ async fn run() -> Result<()> {
 
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use expect_test::expect;
+    use sea_orm::{sea_query::OnConflict, DatabaseBackend, EntityTrait, QueryTrait, Set};
+
+    use super::entities::my_object;
+
+    #[test]
+    fn test() {
+        let m = my_object::ActiveModel {
+            id: Set(233),
+            ..Default::default()
+        };
+
+        let sql = my_object::Entity::insert(m)
+            .on_conflict(
+                OnConflict::column(my_object::Column::Id)
+                    .do_nothing()
+                    .to_owned(),
+            )
+            .do_nothing()
+            .build(DatabaseBackend::MySql);
+
+        expect!["INSERT INTO `my_object` (`id`) VALUES (233) ON DUPLICATE KEY DO NOTHING"].assert_eq(&sql.to_string());
+    }
+}
